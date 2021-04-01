@@ -14,7 +14,7 @@
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1
+# - Milestone 2
 #
 # Which approved features have been implemented for milestone 4?
 # N/A
@@ -55,9 +55,8 @@ ship1_pos: .word 2600
 main:
 
 
-# initialize ship position
-li ship_pos, BASE_ADDRESS
-addi ship_pos,ship_pos,1792
+# initialize relative ship position
+li ship_pos, 1800
 la ship_col, ship_colors # store ship color address
 
 
@@ -73,8 +72,58 @@ addi $t8,$t8,4
 bne $t8,$t9,clear
 # ----------------- #
 
+# recieve input asdw and update ship position
+# ------------------ #
+li $t9, 0xffff0000 # load address to check MMIO event
+lw $t8, 0($t9) # load value of MMIO event
+bne $t8, 1, no_keystroke
 
+lw $t0, 4($t9) # get ASCII value of key stroke into $t0
 
+beq $t0, 97, pressed_a 
+beq $t0, 100, pressed_d
+beq $t0, 119, pressed_w
+beq $t0, 115, pressed_s 
+
+pressed_a: # move left
+# check if out of bounds
+	sll $t1, ship_pos, 25 # $t1 is non-zero when x is non-zero
+	beqz $t1, input_end # if x = 0, then ship is at left bound of map, goto end
+	addi ship_pos,ship_pos,-4# moves position to left
+	j input_end
+pressed_d: # move right
+# check if out of bounds
+	addi $t1, ship_pos,-104
+	sll $t1, $t1, 25 # $t1 is non-zero when x-104 is non-zero
+	beqz $t1, input_end # if x-104=0, ship is at right bound of map
+	addi ship_pos,ship_pos,4 # moves position to right
+	j input_end
+pressed_w: # move up
+# check if out of bounds:
+	srl $t1, ship_pos, 7 # $t1 now stores y coord
+	beqz $t1, input_end # if y==0, ship is out of bounds and goto input_end
+	li $t1,1  # to move 1 pixel up
+	sll $t1,$t1,7 # since y coord starts after 7th bit
+	sub ship_pos, ship_pos, $t1 #  y = y -1
+	j input_end
+pressed_s: # move down
+# check if out of bounds:
+	srl $t1, ship_pos, 7 # $t1 now stores y coord
+	addi $t1,$t1, -29
+	beqz $t1, input_end # if y-29==0, ship is out of bounds and goto input_end
+	li $t1,1  # to move 1 pixel down
+	sll $t1,$t1,7 # since y coord starts after 7th bit
+	add ship_pos, ship_pos, $t1 # y = y + 1
+	j input_end
+
+input_end:
+
+# ----------------- #
+no_keystroke:
+
+#li $t1,1 # to move 1 pixel down
+#sll $t1,$t1,7
+#add $t0,$t0,$t1 # move down by 4(1 pixel)
 
 # algorithm to render player ship:
 # --------------- #
@@ -91,6 +140,7 @@ mfhi $t1 # x%24 into $t1
 sll $t0,$t0,7 # $t0 * 2^7 shift left 7
 add $t0,$t0,$t1 # $ add in x%24
 add $t0,$t0,ship_pos
+addi $t0, $t0, BASE_ADDRESS
 # t0 stores the pixel coordinate to colour
 
 lw $t1, 0($t5)# load color,
@@ -170,9 +220,9 @@ lw $t0, 0($t0) # $t0 holds value ast1_pos
 
 # do a check to see out-of-bounds
 sll $t1, $t0,25 # gets x coordinate in upper bits
-beqz $t1, new_pos_ast1 # checks if x !=0, then get new pos
+beqz $t1, new_pos_ast1 # checks if x ==0, then get random pos
 
-# compute new position
+# compute next position
 addi $t0, $t0, -4 # move left by 4(1 pixel)
 j update_ast1
 
@@ -204,7 +254,7 @@ sll $t1, $t0,25 # gets x coordinate in upper bits
 beqz $t1, new_pos_ast2 # checks if x ==0, then out of bounds
 srl $t1, $t0,7 # gets y coordinate in upper bits
 beqz $t1, new_pos_ast2 # checks if y ==0, then out of bounds
-addi $t1,$t1,-30 # compute y-32
+addi $t1,$t1,-30 # compute y-30
 beqz $t1, new_pos_ast2 # checks if y-30 ==0, then out of bounds
 
 # compute new position
