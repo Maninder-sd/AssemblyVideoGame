@@ -37,14 +37,21 @@
 
 .data
 
-ship_colors:.word 0x263238,0x263238,0x263238,0x4a148c,0x000000,0x000000,        0x000000,0x000000,0x4a148c,0x4a148c,0x2195f3,0x000000,     0x263238,0x4a148c,0x4a148c,0x4a148c,0x4a148c,0xd50000
 
-# Relative coordinates of colored tilesfor obstacles:
+
+# Relative coordinates of colored tiles:
+# player ship:
+ship_colors:.word 0x263238,0x263238,0x263238,0x4a148c,     0x4a148c,0x4a148c,0x2195f3,     0x263238,0x4a148c,0x4a148c,0x4a148c,0x4a148c,0xd50000
+ship_coord: .word 0,4,8,12,     136,140,144,     256,260,264,268,272,276
+# obstacles:
+ast1_colors: .word 0x607d8b,0x607d8b,0x607d8b,0x607d8b,0x607d8b
 ast1_coord: .word 4,128,132,136,260
+ast2_colors: .word 0x607d8b,0xff4080,0x607d8b
 ast2_coord: .word 0,128,132
+ship1_colors: .word 0x607d8b,0xff5622,0x607d8b,0x607d8b,0x607d8b,0xff5622,0x607d8b
 ship1_coord: .word 4,12,128,136,144,260,268
 
-# relative pos to buffer frame
+# relative start pos to buffer frame
 ast1_pos: .word 704
 ast2_pos: .word 760
 ship1_pos: .word 2600
@@ -76,7 +83,7 @@ bne $t8,$t9,clear
 # ------------------ #
 li $t9, 0xffff0000 # load address to check MMIO event
 lw $t8, 0($t9) # load value of MMIO event
-bne $t8, 1, no_keystroke
+bne $t8, 1, input_end
 
 lw $t0, 4($t9) # get ASCII value of key stroke into $t0
 
@@ -84,6 +91,7 @@ beq $t0, 97, pressed_a
 beq $t0, 100, pressed_d
 beq $t0, 119, pressed_w
 beq $t0, 115, pressed_s 
+j input_end
 
 pressed_a: # move left
 # check if out of bounds
@@ -115,11 +123,9 @@ pressed_s: # move down
 	sll $t1,$t1,7 # since y coord starts after 7th bit
 	add ship_pos, ship_pos, $t1 # y = y + 1
 	j input_end
-
 input_end:
 
 # ----------------- #
-no_keystroke:
 
 #li $t1,1 # to move 1 pixel down
 #sll $t1,$t1,7
@@ -127,48 +133,66 @@ no_keystroke:
 
 # algorithm to render player ship:
 # --------------- #
-li $t8,68 # loop variable, x
+addi $t1, ship_pos,BASE_ADDRESS# get abs position of ship
+
+li $t8,48 # loop variable, x, 48/4+1 = 13 pixels in the ship
 render_ship:
-add $t5, ship_col, $t8 # address of xth colour is in $t5
-
-li $t2,24
-div $t8,$t2 # x//24 into $t0
-mflo $t0
-mfhi $t1 # x%24 into $t1
-#div $t0,$t8,24
- 
-sll $t0,$t0,7 # $t0 * 2^7 shift left 7
-add $t0,$t0,$t1 # $ add in x%24
-add $t0,$t0,ship_pos
-addi $t0, $t0, BASE_ADDRESS
-# t0 stores the pixel coordinate to colour
-
-lw $t1, 0($t5)# load color,
-sw $t1, 0($t0) # store colour on framebuffer
-
-addi $t8,$t8,-4
-bgez $t8, render_ship
+#getting pixel color
+	la $t5, ship_colors
+	add $t5, $t5, $t8 # address of xth colour is into $t5
+	lw $t5, 0($t5)# load color into $t5
+# getting pixel address
+	la $t0, ship_coord
+	add $t0, $t0 ,$t8 # address to xth pixel address of ship into $t0
+	lw $t0, 0($t0) # load relative address of xth pixel into $t0
+	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+# displaying pixel color
+	sw $t5, 0($t0) # store colour on framebuffer
+	
+addi $t8,$t8,-4#decrement counter
+bgez $t8, render_ship#check if counter x != 0, then loop
 # -------------------- #
 
 
 
 # algorithm to astr1
 # ------------------ #
-la $t0, ast1_pos # load adress to ast1_pos
-lw $t0, 0($t0) # load value of ast1_pos
-addi $t0, $t0, BASE_ADDRESS # now $t0 stores absolute pos of where ast1 starts
+la $t1, ast1_pos # load adress to ast1_pos
+lw $t1, 0($t1) # load value of ast1_pos
+addi $t1, $t1,BASE_ADDRESS# get absolute position of where ast1 starts
 
-li $t8,16 # 5 pixels in ast1
+li $t8,16 # loop variable, x, 16/4+1 = 5 pixels in the ship
 render_ast1:
-lw $t1, ast1_coord($t8)# get relative pixel into $t1			# <--- I think this should work
-add $t1,$t1,$t0 # relative pixel + ast1_pos into $t1
+#getting pixel color
+	la $t5, ast1_colors
+	add $t5, $t5, $t8 # address of xth colour is into $t5
+	lw $t5, 0($t5)# load color into $t5
+# getting pixel address
+	lw $t0, ast1_coord($t8)
+	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+# displaying pixel color
+	sw $t5, 0($t0) # store colour on framebuffer
+	
+addi $t8,$t8,-4#decrement counter
+bgez $t8, render_ast1#check if counter x != 0, then loop
+
+
+
+#la $t0, ast1_pos # load adress to ast1_pos
+#lw $t0, 0($t0) # load value of ast1_pos
+#addi $t0, $t0, BASE_ADDRESS # now $t0 stores absolute pos of where ast1 starts
+
+#li $t8,16 # loop variable,x, 5 pixels in ast1
+#render_ast1:
+#lw $t1, ast1_coord($t8)# get relative pixel into $t1			# <--- I think this should work
+#add $t1,$t1,$t0 # relative pixel + ast1_pos into $t1
 # now $t1 stores pixel to be coloredgrey =0x607d8b
 
-li $t2,0x607d8b # load grey
-sw $t2,0($t1) # make pixel grey
+#li $t2,0x607d8b # load grey
+#sw $t2,0($t1) # make pixel grey
 
-addi $t8,$t8,-4
-bgez $t8,render_ast1
+#addi $t8,$t8,-4
+#bgez $t8,render_ast1
 # ----------------- #
 
 # algorithm to render astr2
