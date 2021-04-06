@@ -37,6 +37,10 @@
 
 .data
 
+# STATS:
+health: .word 100
+d_health: .word 0 # current damage to health
+
 
 
 # Relative coordinates of colored tiles:
@@ -131,6 +135,8 @@ input_end:
 #sll $t1,$t1,7
 #add $t0,$t0,$t1 # move down by 4(1 pixel)
 
+# -------------------------------------------- RENDERING -------------------------------------------------- #
+
 # algorithm to render player ship:
 # --------------- #
 addi $t1, ship_pos,BASE_ADDRESS# get abs position of ship
@@ -168,11 +174,26 @@ render_ast1:
 # getting pixel address
 	lw $t0, ast1_coord($t8) # load relative address of xth pixel of ast1
 	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+# check for collision:
+	lw $t2, 0($t0) # pixel color to check
+	# checks if cuurent color is ship colors: 0x263238,0x4a148c,0xd50000
+	beq $t2,  0x263238, ast1_col_detected
+	beq $t2, 0x4a148c, ast1_col_detected
+	beq $t2, 0xd50000, ast1_col_detected
+	j ast1_col_end
+ast1_col_detected:
+	li $t2, -10 # damage done by ast1	
+	sw $t2, d_health($zero)
+	li $t2,0 # reset position ast1
+	sw $t2, ast1_pos($zero)
+	j ast1_render_end # stop rendering 
+ast1_col_end:
 # displaying pixel color
 	sw $t5, 0($t0) # store colour on framebuffer
 	
 addi $t8,$t8,-4#decrement counter
 bgez $t8, render_ast1#check if counter x != 0, then loop
+ast1_render_end:
 # ----------------- #
 
 # algorithm to render astr2
@@ -190,11 +211,26 @@ render_ast2:
 # getting pixel address
 	lw $t0, ast2_coord($t8) # load relative address of xth pixel of ast2
 	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+# check for collision:
+	lw $t2, 0($t0) # pixel color to check
+	# checks if cuurent color is ship colors: 0x263238,0x4a148c,0xd50000
+	beq $t2,  0x263238, ast2_col_detected
+	beq $t2, 0x4a148c, ast2_col_detected
+	beq $t2, 0xd50000, ast2_col_detected
+	j ast2_col_end
+ast2_col_detected:
+	li $t2, -10 # damage done by ast1	
+	sw $t2, d_health($zero)
+	li $t2,0 # reset position ast1
+	sw $t2, ast2_pos($zero)
+	j ast2_render_end # stop rendering 
+ast2_col_end:
 # displaying pixel color
 	sw $t5, 0($t0) # store colour on framebuffer
 	
 addi $t8,$t8,-4#decrement counter
 bgez $t8, render_ast2#check if counter x != 0, then loop
+ast2_render_end:
 # ----------------- #
 
 
@@ -214,13 +250,30 @@ render_ship1:
 # getting pixel address
 	lw $t0, ship1_coord($t8) # load relative address of xth pixel of shp1
 	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+# check for collision:
+	lw $t2, 0($t0) # pixel color to check
+	# checks if cuurent color is ship colors: 0x263238,0x4a148c,0xd50000
+	beq $t2,  0x263238, ship1_col_detected
+	beq $t2, 0x4a148c, ship1_col_detected
+	beq $t2, 0xd50000, ship1_col_detected
+	j ship1_col_end
+ship1_col_detected:
+	li $t2, -10 # damage done by ast1	
+	sw $t2, d_health($zero)
+	li $t2,0 # reset position ast1
+	sw $t2, ship1_pos($zero)
+	j ship1_render_end # stop rendering 
+ship1_col_end:
 # displaying pixel color
 	sw $t5, 0($t0) # store colour on framebuffer
 	
 addi $t8,$t8,-4#decrement counter
 bgez $t8, render_ship1 # check if counter x != 0, then loop
+ship1_render_end:
 # ----------------- #
 
+
+# -------------------------------------------- RENDERING ENDS -------------------------------------------------- #
 
 # update ast1_pos
 # ------------------- #
