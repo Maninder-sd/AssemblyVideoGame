@@ -142,9 +142,7 @@ render_ship:
 	add $t5, $t5, $t8 # address of xth colour is into $t5
 	lw $t5, 0($t5)# load color into $t5
 # getting pixel address
-	la $t0, ship_coord
-	add $t0, $t0 ,$t8 # address to xth pixel address of ship into $t0
-	lw $t0, 0($t0) # load relative address of xth pixel into $t0
+	lw $t0, ship_coord($t8) # load relative address of xth pixel of ship
 	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
 # displaying pixel color
 	sw $t5, 0($t0) # store colour on framebuffer
@@ -168,71 +166,59 @@ render_ast1:
 	add $t5, $t5, $t8 # address of xth colour is into $t5
 	lw $t5, 0($t5)# load color into $t5
 # getting pixel address
-	lw $t0, ast1_coord($t8)
+	lw $t0, ast1_coord($t8) # load relative address of xth pixel of ast1
 	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
 # displaying pixel color
 	sw $t5, 0($t0) # store colour on framebuffer
 	
 addi $t8,$t8,-4#decrement counter
 bgez $t8, render_ast1#check if counter x != 0, then loop
-
-
-
-#la $t0, ast1_pos # load adress to ast1_pos
-#lw $t0, 0($t0) # load value of ast1_pos
-#addi $t0, $t0, BASE_ADDRESS # now $t0 stores absolute pos of where ast1 starts
-
-#li $t8,16 # loop variable,x, 5 pixels in ast1
-#render_ast1:
-#lw $t1, ast1_coord($t8)# get relative pixel into $t1			# <--- I think this should work
-#add $t1,$t1,$t0 # relative pixel + ast1_pos into $t1
-# now $t1 stores pixel to be coloredgrey =0x607d8b
-
-#li $t2,0x607d8b # load grey
-#sw $t2,0($t1) # make pixel grey
-
-#addi $t8,$t8,-4
-#bgez $t8,render_ast1
 # ----------------- #
 
 # algorithm to render astr2
 # ------------------ #
-la $t0, ast2_pos # load adress to ast1_pos
-lw $t0, 0($t0) # load value of ast1_pos
-addi $t0, $t0, BASE_ADDRESS # now $t0 stores absolute pos of where ast1 starts
+la $t1, ast2_pos # load adress to ast2_pos
+lw $t1, 0($t1) # load value of ast2_pos
+addi $t1, $t1,BASE_ADDRESS# get absolute position of where ast2 starts
 
-li $t8,8 # 3 pixels in ast1
+li $t8,8 # loop variable, x, 8/4+1 = 3 pixels in ast2
 render_ast2:
-lw $t1, ast2_coord($t8)# get relative pixel into $t1			# <--- I think this should work
-add $t1,$t1,$t0 # relative pixel + ast1_pos into $t1
-# now $t1 stores pixel to be coloredgrey =0x607d8b
-
-li $t2,0x607d8b # load grey
-sw $t2,0($t1) # make pixel grey
-
-addi $t8,$t8,-4
-bgez $t8,render_ast2
+#getting pixel color
+	la $t5, ast2_colors
+	add $t5, $t5, $t8 # address of xth colour is into $t5
+	lw $t5, 0($t5)# load color into $t5
+# getting pixel address
+	lw $t0, ast2_coord($t8) # load relative address of xth pixel of ast2
+	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+# displaying pixel color
+	sw $t5, 0($t0) # store colour on framebuffer
+	
+addi $t8,$t8,-4#decrement counter
+bgez $t8, render_ast2#check if counter x != 0, then loop
 # ----------------- #
 
 
 
 # algorithm to render ship1
 # ------------------ #
-la $t0, ship1_pos # load adress to ast1_pos
-lw $t0, 0($t0) # load value of ast1_pos
-addi $t0, $t0, BASE_ADDRESS # now $t0 stores absolute pos of where ast1 starts
+la $t1, ship1_pos # load adress to ship1_pos
+lw $t1, 0($t1) # load value of ship1_pos
+addi $t1, $t1,BASE_ADDRESS# get absolute position of where ship1 starts
 
-li $t8,24 # 7 pixels in ast1 7*4-4
+li $t8,24 # loop variable, x, 24/4+1 = 7 pixels in the ship
 render_ship1:
-lw $t1, ship1_coord($t8)# get relative pixel into $t1			# <--- I think this should work
-add $t1,$t1,$t0 # relative pixel + ast1_pos into $t1
-# now $t1 stores pixel to be coloredgrey =0x607d8b
-
-li $t2,0x607d8b # load grey
-sw $t2,0($t1) # make pixel grey
-
-addi $t8,$t8,-4
-bgez $t8,render_ship1
+#getting pixel color
+	la $t5, ship1_colors
+	add $t5, $t5, $t8 # address of xth colour is into $t5
+	lw $t5, 0($t5)# load color into $t5
+# getting pixel address
+	lw $t0, ship1_coord($t8) # load relative address of xth pixel of shp1
+	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+# displaying pixel color
+	sw $t5, 0($t0) # store colour on framebuffer
+	
+addi $t8,$t8,-4#decrement counter
+bgez $t8, render_ship1 # check if counter x != 0, then loop
 # ----------------- #
 
 
