@@ -39,9 +39,9 @@
 .eqv timer $s4
 .eqv timer_bar $s5
 
-.eqv SLEEP 40 
+.eqv SLEEP 80 
 .eqv LEVEL_1_LENGTH 10 # level 1 runs for 60*13= 780 cycles = 31.2 sec
-.eqv LEVEL_2_LENGTH 10 # level 1 runs for 60*13= 780 cycles = 31.2 sec
+.eqv LEVEL_2_LENGTH 30 # level 1 runs for 60*13= 780 cycles = 31.2 sec
 
 
 .data
@@ -55,10 +55,20 @@ health: .word 3960
 # player ship:
 ship_colors:.word 0x263238,0x263238,0x263238,0x4a148c,     0x4a148c,0x4a148c,0x2195f3,     0x263238,0x4a148c,0x4a148c,0x4a148c,0x4a148c,0xd50000
 ship_coord: .word 0,4,8,12,     136,140,144,     256,260,264,268,272,276
+
 # obstacles:
 ast1_colors: .word 0x607d8b,0x607d8b,0x9e9e9e,0x607d8b,0x607d8b
 ast1_coord: .word 4,128,132,136,260
+ast1_pos: .word 0, 100, 300, 1500
 
+# pink
+mis1_colors: .word 0xd4d4d4,0xff4080,0xd4d4d4
+mis1_coord: .word 0,128,132
+mis1_pos: .word 1000
+# blue
+mis2_colors: .word 0x2195f3,0xd4d4d4,0xd4d4d4
+mis2_coord: .word 0,4,128
+mis2_pos: .word 100
 
 heal_colors: .word 0xffffff,0x4caf4f,0xffffff,		0x8bc34a,0x4caf4f,0x4caf4f,	0xffffff, 0x8bc34a,0xffffff
 heal_coord: .word 0,4,8,	128,132,136,	256,260,264
@@ -66,8 +76,8 @@ heal_coord: .word 0,4,8,	128,132,136,	256,260,264
 heal_pos:  .word 0
 heal_start: .word 0 # 0 means timer isnt ready, 1 means is rendered, 2 means has collided, 3 means out-of-bounds
 
-# relative start pos to buffer frame
-ast1_pos: .word 0, 100, 300, 1500
+
+
 
 
 .text
@@ -180,34 +190,7 @@ bne $t8,$t9,clear1
 # ------- update ast1_pos ----------#
 # this astroid can only move left at speed 1 pixel, from pixel 0-26
 
-li $t9,12 # loop vairable over the 4 ast1's
-
-update_next_ast1:
-
-	la $t0, ast1_pos($t9) # address to ast1_pos
-	lw $t0, 0($t0) # $t0 holds value ast1_pos
-
-	# do a check to see out-of-bounds
-		sll $t1, $t0,25 # gets x coordinate in upper bits
-		beqz $t1, new_pos_ast1 # checks if x ==0, then get random pos
-	# compute next position
-		addi $t0, $t0, -4 # move left by 4(1 pixel)
-		j update_ast1
-	# choose new y coord when out of bounds
-	new_pos_ast1:
-		li $v0, 42 #load service number
-		li $a0, 0 #choose number generator
-		li $a1, 26 # pick number from 0-26
-		syscall
-	# setting y coord:
-		move $t0,$a0
-		sll $t0,$t0,7 # shift $t0 left 7
-		addi $t0, $t0,-12
-	update_ast1:
-		sw $t0,ast1_pos($t9) # update ast1_pos in memory
-	
-addi $t9,$t9,-4
-bgez $t9,update_next_ast1
+	jal updating_ast1 # function call
 # ------------------ #
 
 
@@ -223,44 +206,7 @@ bgez $t9,update_next_ast1
 # algorithm to render astr1
 # ------------------ #
 
-li $t9,12 # loop vairable over the 4 ast1's
-
-render_next_ast1:
-la $t1, ast1_pos($t9) # load adress to ast1_pos
-lw $t1, 0($t1) # load value of ast1_pos
-addi $t1, $t1,BASE_ADDRESS# get absolute position of where ast1 starts
-
-li $t8,16 # loop variable, x, 16/4+1 = 5 pixels in the ship
-render_ast1:
-#getting pixel color
-	la $t5, ast1_colors
-	add $t5, $t5, $t8 # address of xth colour is into $t5
-	lw $t5, 0($t5)# load color into $t5
-# getting pixel address
-	lw $t0, ast1_coord($t8) # load relative address of xth pixel of ast1
-	add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
-# check for collision:
-	lw $t2, 0($t0) # pixel color to check
-	# checks if cuurent color is ship colors: 0x263238,0x4a148c,0xd50000
-	beq $t2,  0x263238, ast1_col_detected
-	beq $t2, 0x4a148c, ast1_col_detected
-	beq $t2, 0xd50000, ast1_col_detected
-	j ast1_col_end
-ast1_col_detected:
-	li damaged, 1 # damage done by ast1	
-	li $t2,0 # reset position ast1
-	sw $t2, ast1_pos($t9)
-	j ast1_render_end # stop rendering 
-ast1_col_end:
-# displaying pixel color
-	sw $t5, 0($t0) # store colour on framebuffer
-addi $t8,$t8,-4#decrement counter
-bgez $t8, render_ast1#check if counter x != 0, then loop
-ast1_render_end:
-
-addi $t9,$t9,-4
-bgez $t9,render_next_ast1
-
+	jal rendering_ast1 # function call to render all asrt1
 # ----------------- #
 
 # render health bar
@@ -306,9 +252,9 @@ li $t0,0x795548 #brown
 clear2:
 	sw $t0, BASE_ADDRESS($t8) 
 	addi $t8,$t8,4
-	#li $v0, 32 #loading sleep service
-	#li $a0, 5 # Wait to create an effect
-	#syscall
+	li $v0, 32 #loading sleep service
+	li $a0, 5 # Wait to create an effect
+	syscall
 bne $t8,$t9,clear2
 # ----------------- #
 # print L 11:
@@ -343,9 +289,9 @@ time_bar1: # 13 pixels
 	syscall
 	ble $t8,$t9,time_bar1 # if end not reached loop again
 	
-	#li $v0, 32 #loading sleep service
-	#li $a0, 5000 # Wait
-	#syscall
+	li $v0, 32 #loading sleep service
+	li $a0, 5000 # Wait
+	syscall
 
 # re-initialize stuff
 	li ship_pos, 1800 # re-position ship
@@ -393,6 +339,7 @@ bne $t8,$t9,clear3
 # -------------------------------------------- CLEARING SCREEN ENDS-------------------------------------------------- #
 
 
+# -------------------------------------------- UPDATE POSITIONS -------------------------------------------------- #
 
 # recieve input asdw and update ship position
 # ------------------ #
@@ -432,6 +379,94 @@ no_kit_update:
 
 # ------------ #
 
+# ------- update ast1_pos ----------#
+# this astroid can only move left at speed 1 pixel, from pixel 0-26
+
+	jal updating_ast1 # function call
+# ------------------ #
+
+# update mis1_pos
+# ------------------- #
+# this missile moves left-down at rate (-2,1)
+
+lw $t0,  mis1_pos  # $t0 holds value mis1_pos
+
+# do a check to see out-of-bounds
+	sll $t1, $t0,25 # gets x coordinate in upper bits
+	beqz $t1, new_pos_mis1 # checks if x ==0, then out of bounds
+	srl $t1, $t0,7 # gets y coordinate to lower bits
+	beqz $t1, new_pos_mis1 # checks if y ==0, then out of bounds
+	addi $t1,$t1,-27 # compute y-27
+	beqz $t1, new_pos_mis1 # checks if y-30 ==0, then out of bounds
+
+# compute next position
+	addi $t0, $t0, -8 # move left by 8(2 pixel) # speed can be changed here, be careful! init pos should be a multiple of this
+	li $t1,1 # to move 1 pixel down
+	sll $t1,$t1,7
+	add $t0,$t0,$t1 # move down by 4(1 pixel)
+	j update_mis1
+# choose new y coord when out of bounds
+new_pos_mis1:
+	li $v0, 42 #load service number
+	li $a0, 0 #choose number generator
+	li $a1, 25 #max value 0-25
+	syscall
+# setting y coord:
+	addi $t0,$a0,1 # y value from 1-26 
+	sll $t0,$t0,7 # shift $t0 left 7
+	addi $t0, $t0,-8 # square off with right side
+
+update_mis1:
+	sw $t0,mis1_pos# update mis2_pos in memory
+# ------------------ #
+
+
+#
+#
+#
+#
+#
+
+
+# update mis2_pos
+# ------------------- #
+# this missile moves left-up at rate (-1,-1)
+
+lw $t0,  mis2_pos  # $t0 holds value mis1_pos
+
+# do a check to see out-of-bounds
+	sll $t1, $t0,25 # gets x coordinate in upper bits
+	beqz $t1, new_pos_mis2 # checks if x ==0, then out of bounds
+	srl $t1, $t0,7 # gets y coordinate to lower bits
+	beqz $t1, new_pos_mis2 # checks if y ==0, then out of bounds
+	addi $t1,$t1,-27 # compute y-27
+	beqz $t1, new_pos_mis2 # checks if y-30 ==0, then out of bounds
+
+# compute next position
+	addi $t0, $t0, -4 # move left by 4(1 pixel) # speed can be changed here, be careful! init pos should be a multiple of this
+	li $t1,-1 # to move 1 pixel up
+	sll $t1,$t1,7
+	add $t0,$t0,$t1 # move down by 4(1 pixel)
+	j update_mis2
+# choose new y coord when out of bounds
+new_pos_mis2:
+	li $v0, 42 #load service number
+	li $a0, 0 #choose number generator
+	li $a1, 25 #max value 0-25
+	syscall
+# setting y coord:
+	addi $t0,$a0,1 # y value from 1-26 
+	sll $t0,$t0,7 # shift $t0 left 7
+	addi $t0, $t0,-8 # square off with right side
+
+update_mis2:
+	sw $t0,mis2_pos# update mis1_pos in memory
+# ------------------ #
+
+
+
+
+# -------------------------------------------- UPDATE POSITIONS -------------------------------------------------- #
 
 # -------------------------------------------- RENDERING -------------------------------------------------- #
 
@@ -439,6 +474,80 @@ no_kit_update:
 # --------------- #
 	jal rendering_ship
 # -------------------- #
+
+# algorithm to render astr1
+# ------------------ #
+
+	jal rendering_ast1 # function call to render all asrt1
+# ----------------- #
+
+
+# algorithm to render astr2
+# ------------------ #
+lw $t1, mis1_pos # load value of mis1_pos
+addi $t1, $t1,BASE_ADDRESS# get absolute position of where ast2 starts
+
+li $t8,8 # loop variable, x, 8/4+1 = 3 pixels in ast2
+	render_mis1:
+	#getting pixel color
+		lw $t5, mis1_colors($t8)# load color into $t5
+	# getting pixel address
+		lw $t0, mis1_coord($t8) # load relative address of xth pixel of ast2
+		add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+	# check for collision:
+		lw $t2, 0($t0) # pixel color to check
+		# checks if cuurent color is ship colors: 0x263238,0x4a148c,0xd50000
+		beq $t2,  0x263238, mis1_col_detected
+		beq $t2, 0x4a148c, mis1_col_detected
+		beq $t2, 0xd50000, mis1_col_detected
+		j mis1_col_end
+	mis1_col_detected:
+		li damaged, 1 # damage done by ast1
+		li $t2,0 # reset position ast1
+		sw $t2, mis1_pos($zero)
+		j mis1_render_end # stop rendering 
+	mis1_col_end:
+	# displaying pixel color
+		sw $t5, 0($t0) # store colour on framebuffer
+	
+	addi $t8,$t8,-4#decrement counter
+	bgez $t8, render_mis1#check if counter x != 0, then loop
+mis1_render_end:
+# ----------------- #
+
+# algorithm to render mis2
+# ------------------ #
+lw $t1, mis2_pos # load value of mis1_pos
+addi $t1, $t1,BASE_ADDRESS# get absolute position of where ast2 starts
+
+li $t8,8 # loop variable, x, 8/4+1 = 3 pixels in mis2
+	render_mis2:
+	#getting pixel color
+		lw $t5, mis2_colors($t8)# load color into $t5
+	# getting pixel address
+		lw $t0, mis2_coord($t8) # load relative address of xth pixel of mis2
+		add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+	# check for collision:
+		lw $t2, 0($t0) # pixel color to check
+		# checks if cuurent color is ship colors: 0x263238,0x4a148c,0xd50000
+		beq $t2,  0x263238, mis2_col_detected
+		beq $t2, 0x4a148c, mis2_col_detected
+		beq $t2, 0xd50000, mis2_col_detected
+		j mis2_col_end
+	mis2_col_detected:
+		li damaged, 1 # damage done by ast1
+		li $t2,0 # reset position ast1
+		sw $t2, mis2_pos($zero)
+		j mis2_render_end # stop rendering 
+	mis2_col_end:
+	# displaying pixel color
+		sw $t5, 0($t0) # store colour on framebuffer
+	
+	addi $t8,$t8,-4#decrement counter
+	bgez $t8, render_mis2#check if counter x != 0, then loop
+mis2_render_end:
+# ----------------- #
+
 
 
 
@@ -497,20 +606,21 @@ no_damage2:
 
 lw $t0, heal_start
 bne $t0,2,no_heal
-
-# making health bar full 
-	li $t9, 3960 # till end
-	lw $t8, health # start from health
-	li $t0 0x00ff00 #green
-health_bar2:
-	sw $t0, BASE_ADDRESS($t8) 
-	addi $t8,$t8,4
-	li $v0, 32 #loading sleep service
-	li $a0, 80 # Wait
-	syscall
-	ble $t8,$t9,health_bar2
-li $t0, 3960
-sw $t0, health # update health to full
+	# making health bar full 
+		li $t9, 3960 # till end
+		lw $t8, health # start from health
+		li $t0 0x00ff00 #green
+	health_bar2:
+		sw $t0, BASE_ADDRESS($t8) 
+		addi $t8,$t8,4
+		li $v0, 32 #loading sleep service
+		li $a0, 80 # Wait
+		syscall
+		ble $t8,$t9,health_bar2
+	li $t0, 3960
+	sw $t0, health # update health to full
+	li $t0,3
+	sw $t0,heal_start
 no_heal:
 
 # ----------------#
@@ -631,5 +741,86 @@ sw $t0, 268($t1) # saving color in framebuffer
 	li $t0, 0xd50000 # red
 	sw $t0, 276($t1)
 
+	jr $ra
+# ----------------- #
+
+
+# ------- update ast1_pos ----------#
+# this astroid can only move left at speed 1 pixel, from pixel 0-26
+updating_ast1 : # function void updating_ast1(void)
+	li $t9,12 # loop vairable over the 4 ast1's
+
+	update_next_ast1:
+
+		la $t0, ast1_pos($t9) # address to ast1_pos
+		lw $t0, 0($t0) # $t0 holds value ast1_pos
+
+		# do a check to see out-of-bounds
+			sll $t1, $t0,25 # gets x coordinate in upper bits
+			beqz $t1, new_pos_ast1 # checks if x ==0, then get random pos
+		# compute next position
+			addi $t0, $t0, -4 # move left by 4(1 pixel)
+			j update_ast1
+		# choose new y coord when out of bounds
+		new_pos_ast1:
+			li $v0, 42 #load service number
+			li $a0, 0 #choose number generator
+			li $a1, 26 # pick number from 0-26
+			syscall
+		# setting y coord:
+			move $t0,$a0
+			sll $t0,$t0,7 # shift $t0 left 7
+			addi $t0, $t0,-12
+		update_ast1:
+			sw $t0,ast1_pos($t9) # update ast1_pos in memory
+	
+	addi $t9,$t9,-4
+	bgez $t9,update_next_ast1
+	
+	jr $ra
+# ------------------ #
+
+
+# algorithm to render astr1
+# ------------------ #
+rendering_ast1:
+	li $t9,12 # loop vairable over the 4 ast1's
+
+	render_next_ast1:
+	la $t1, ast1_pos($t9) # load adress to ast1_pos
+	lw $t1, 0($t1) # load value of ast1_pos
+	addi $t1, $t1,BASE_ADDRESS# get absolute position of where ast1 starts
+
+	li $t8,16 # loop variable, x, 16/4+1 = 5 pixels in the ship
+	render_ast1:
+	#getting pixel color
+		la $t5, ast1_colors
+		add $t5, $t5, $t8 # address of xth colour is into $t5
+		lw $t5, 0($t5)# load color into $t5
+	# getting pixel address
+		lw $t0, ast1_coord($t8) # load relative address of xth pixel of ast1
+		add $t0,$t0,$t1# now $t0 is absolute address of xth pixel
+	# check for collision:
+		lw $t2, 0($t0) # pixel color to check
+	# checks if cuurent color is ship colors: 0x263238,0x4a148c,0xd50000
+		beq $t2,  0x263238, ast1_col_detected
+		beq $t2, 0x4a148c, ast1_col_detected
+		beq $t2, 0xd50000, ast1_col_detected
+		j ast1_col_end
+	ast1_col_detected:
+		li damaged, 1 # damage done by ast1	
+		li $t2,0 # reset position ast1
+		sw $t2, ast1_pos($t9)
+		j ast1_render_end # stop rendering 
+	ast1_col_end:
+	# displaying pixel color
+		sw $t5, 0($t0) # store colour on framebuffer
+		addi $t8,$t8,-4#decrement counter
+		bgez $t8, render_ast1#check if counter x != 0, then loop
+	ast1_render_end:
+
+	addi $t9,$t9,-4
+	bgez $t9,render_next_ast1
+	
 	jr $ra
 # ----------------- #
