@@ -14,14 +14,19 @@
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 3
+# - Milestone 4
 #
 # Which approved features have been implemented for milestone 4?
-# N/A
-# ... (add more if necessary)
+# 1) Different levels: there are 2 different levels, you must survive level 1 to rech level 2 (level 2 has new look and obstacles)
+# 2) Increase in difficulty as game progresses ( added more faster obstacles that move in different pattern
+# 3) Added a pickup item: Repair\Healing  Kits appears randomly only once during level 2, it makes ur health ful again
+# 4) Scoring system: at the end, you get rated out of 5 stars depending on how many times you collided and if you picked up the Repair kit
+#         given by SCORE = 20 - (# of collisions) + 2*(if picked up kit); each star needs 4 points
+# 5) Precise collision detection: collision is detected precisly when a pixel of player ship and obstacle pixel overlap
+# 	this is achieved by checking pixel colors against the ship's colours when rendering obstacles
 #
 # Link to video demonstration for final submission:
-# N/A
+# https://www.youtube.com/watch?v=-yWg0NWwzGk&ab_channel=mani1820
 # #
 #Are you OK with us sharing the video with people outside course staff?
 # yes, https://github.com/Maninder-sd/AssemblyVideoGame
@@ -38,10 +43,11 @@
 
 .eqv timer $s4
 .eqv timer_bar $s5
+.eqv score $s6
 
 .eqv SLEEP 80 
-.eqv LEVEL_1_LENGTH 10 # level 1 runs for 60*13= 780 cycles = 31.2 sec
-.eqv LEVEL_2_LENGTH 30 # level 1 runs for 60*13= 780 cycles = 31.2 sec
+.eqv LEVEL_1_LENGTH 45 # level 1 runs for 30*13*80 = 31.2 sec
+.eqv LEVEL_2_LENGTH 60 # level 1 runs for 60*13*80 = 62.4 sec
 
 
 .data
@@ -77,6 +83,9 @@ heal_pos:  .word 0
 heal_start: .word 0 # 0 means timer isnt ready, 1 means is rendered, 2 means has collided, 3 means out-of-bounds
 
 
+stars_coord: .word 4,128,132,136,260
+stars_pos: 1684,1700,1716,1732,1748
+
 
 
 
@@ -92,7 +101,8 @@ main:
 
 
 
-
+# init score
+	li score,20
 # init ship stuff:
 	li ship_pos, 1800
 	la ship_col, ship_colors # store ship color address
@@ -107,55 +117,47 @@ main:
 
 
 
-
-
-
-
-
-
-
-
 # setting up health bar:
-# ---------------- #
-# making yellow base 
-	li $t9, 4092 # till end
-	li $t8, 3712 # start from 29th row
-	li $t0 0xf9a825 #yellow colour
-yellow_base:
-	sw $t0, BASE_ADDRESS($t8) 
-	addi $t8,$t8,4
-	ble $t8,$t9,yellow_base
-# making health bar 
-	li $t9, 3960 # till end
-	li $t8, 3908 # start from 29th row
-	li $t0 0x00ff00 #green
-health_bar:
-	sw $t0, BASE_ADDRESS($t8) 
-	addi $t8,$t8,4
-	ble $t8,$t9,health_bar
-# making timer bar 
-	li $t9, 3892 # till end
-	li $t8, 3844 # start from 29th row
-	li $t0 0x03a8f4 #blue 
-time_bar: # 13 pixels
-	sw $t0, BASE_ADDRESS($t8) 
-	addi $t8,$t8,4
-	ble $t8,$t9,time_bar
-# making reload dot
-	li $t0 0xd50000 #red
-	li $t8, 3900
-	sw $t0, BASE_ADDRESS($t8) 
-# ---------------- #
+	# ---------------- #
+	# making yellow base 
+		li $t9, 4092 # till end
+		li $t8, 3712 # start from 29th row
+		li $t0 0xf9a825 #yellow colour
+	yellow_base:
+		sw $t0, BASE_ADDRESS($t8) 
+		addi $t8,$t8,4
+		ble $t8,$t9,yellow_base
+	# making health bar 
+		li $t9, 3960 # till end
+		li $t8, 3908 # start from 29th row
+		li $t0 0x00ff00 #green
+	health_bar:
+		sw $t0, BASE_ADDRESS($t8) 
+		addi $t8,$t8,4
+		ble $t8,$t9,health_bar
+	# making timer bar 
+		li $t9, 3892 # till end
+		li $t8, 3844 # start from 29th row
+		li $t0 0x03a8f4 #blue 
+	time_bar: # 13 pixels
+		sw $t0, BASE_ADDRESS($t8) 
+		addi $t8,$t8,4
+		ble $t8,$t9,time_bar
+	# making reload dot
+		li $t0 0xd50000 #red
+		li $t8, 3900
+		sw $t0, BASE_ADDRESS($t8) 
+	# ---------------- #
 
 # algorithm to clear entire screen:
-# ---------------- #
-li $t9, 3712
-li $t8, 0
-clear:
-sw $zero, BASE_ADDRESS($t8) 
-addi $t8,$t8,4
-bne $t8,$t9,clear
-# ----------------- #
+	# ---------------- #
+	li $t9, 3712
+	li $t8, 0
+	clear:
+	sw $zero, BASE_ADDRESS($t8) 
+	addi $t8,$t8,4
+	bne $t8,$t9,clear
+	# ----------------- #
 
 
 #j done_level_1 # THIS LINE SHOULD BE REMOVED AT THE END!!!!!
@@ -167,78 +169,65 @@ bne $t8,$t9,clear
 
 level_1:
 
-# -------------------------------------------- CLEARING SCREEN -------------------------------------------------- #
-# algorithm to clear entire screen:
-# ---------------- #
-li $t9, 3712
-li $t8, 0
-clear1:
-sw $zero, BASE_ADDRESS($t8) # i think this should work
-addi $t8,$t8,4
-bne $t8,$t9,clear1
-# ----------------- #
-# -------------------------------------------- CLEARING SCREEN ENDS -------------------------------------------------- #
+	# -------------------------------------------- CLEARING SCREEN -------------------------------------------------- #
+	# algorithm to clear entire screen:
+		# ---------------- #
+		li $t9, 3712 # loop variable limit
+		li $t8, 0 # loop cariable
+		clear1:
+		sw $zero, BASE_ADDRESS($t8) #sets pixel color to zerp
+		addi $t8,$t8,4 # increments counter
+		bne $t8,$t9,clear1 # loops to start of loop if $t8!=$t9
+		# ----------------- #
+	# -------------------------------------------- CLEARING SCREEN ENDS -------------------------------------------------- #
+	# recieve input asdw and update ship position
+		# ------------------ #
+		jal check_input # function call to void check_input(void)
+		# ----------------- #
+		
+	# ------- update ast1_pos ----------#
+		# this astroid can only move left at speed 1 pixel, from pixel 0-26
+		jal updating_ast1 # function call to void update_Ast1(void)
+		# ------------------ #
+		
+	# -------------------------------------------- RENDERING -------------------------------------------------- #
+	# algorithm to render player ship:
+		# --------------- #
+		jal rendering_ship # function call to void rendering_ship (void)
+		# -------------------- #
+	# algorithm to render astr1
+		# ------------------ #
+		jal rendering_ast1 # function call to render all asrt1
+		# ----------------- #
+	# render health bar
+		# ----------------#
+		bne damaged,1,no_damage #check if damage is done
+			addi score,score,-1 # decrement score
+			lw $t0, health($zero) #loads current health bar
+			sw $zero, BASE_ADDRESS($t0) # blacks out a health
+			addi $t0,$t0,-4 # decrements the health
+			sw $t0, health # updates the new health
+			beq $t0, 3904, game_over # checks if health is done
+			li damaged,0
+		no_damage:
 
+		# ----------------#
+	# -------------------------------------------- RENDERING END -------------------------------------------------- #
+	li $v0, 32 #loading sleep service
+	li $a0, SLEEP # Wait
+	syscall
+	# timer stuff:
+		# ------------ #
+		addi timer,timer,1 # increment timer
+		blt timer,LEVEL_1_LENGTH,level_1 # check if 60 frames have passed
 
+		li timer, 0 # reset timer
+		sw $zero, BASE_ADDRESS(timer_bar)# reduce timer on timer_bar
+		addi timer_bar,timer_bar,-4 # decrement timer_bar address
 
-# recieve input asdw and update ship position
-# ------------------ #
-	jal check_input
-# ----------------- #
-
-
-# ------- update ast1_pos ----------#
-# this astroid can only move left at speed 1 pixel, from pixel 0-26
-
-	jal updating_ast1 # function call
-# ------------------ #
-
-
-
-# -------------------------------------------- RENDERING -------------------------------------------------- #
-
-# algorithm to render player ship:
-# --------------- #
-	jal rendering_ship
-# -------------------- #
-
-
-# algorithm to render astr1
-# ------------------ #
-
-	jal rendering_ast1 # function call to render all asrt1
-# ----------------- #
-
-# render health bar
-# ----------------#
-bne damaged,1,no_damage #check if damage is done
-	lw $t0, health($zero) #loads current health bar
-	sw $zero, BASE_ADDRESS($t0) # blacks out a health
-	addi $t0,$t0,-4 # decrements the health
-	sw $t0, health # updates the new health
-	beq $t0, 3904, game_over # checks if health is done
-	li damaged,0
-no_damage:
-
-# ----------------#
-
-# -------------------------------------------- RENDERING END -------------------------------------------------- #
-
-li $v0, 32 #loading sleep service
-li $a0, SLEEP # Wait
-syscall
-
-# timer stuff:
-# ------------ #
-addi timer,timer,1 # increment timer
-blt timer,LEVEL_1_LENGTH,level_1 # check if 60 frames have passed
-
-li timer, 0 # reset timer
-sw $zero, BASE_ADDRESS(timer_bar)# reduce timer on timer_bar
-addi timer_bar,timer_bar,-4 # decrement timer_bar address
-
-beq timer_bar,3840, done_level_1 # if all of timer bar is decremented, goto done_level_1
-# ----------- #
+		beq timer_bar,3840, done_level_1 # if all of timer bar is decremented, goto done_level_1
+		# ----------- #
+	
 j level_1
 
 ############# -------------------------------------------------------------------------- LEVEL 1 ENDS --------------------------------------------------------------------------------------- ###############
@@ -314,14 +303,14 @@ time_bar1: # 13 pixels
 # --------------- #
 
 
-li $t0, 0
-sw $t0, heal_start
+li $t0, 0 # load zero
+sw $t0, heal_start # initialize healing kit state to 0
 
 ############# -------------------------------------------------------------------------- LEVEL 2 --------------------------------------------------------------------------------------- ###############
 
-# in this level, you must dogde special enemy long range missiles that move diagonally
-# additionally, you have a chance to pick up a healing k that appears once in the level
-# so you can recharge before the next boss level 
+# in this level, you must dogde obstacles that move diagonally
+# additionally, you have a chance to pick up a healing kit that appears once in the level
+# so you can recharge
 
 level_2:
 
@@ -596,6 +585,7 @@ heal_skip:
 # render health bar
 # ----------------#
 bne damaged,1,no_damage2 #check if damage is done
+	addi score,score,-1 # decrement score
 	lw $t0, health($zero) #loads current health bar
 	sw $zero, BASE_ADDRESS($t0) # blacks out a health
 	addi $t0,$t0,-4 # decrements the health
@@ -606,6 +596,7 @@ no_damage2:
 
 lw $t0, heal_start
 bne $t0,2,no_heal
+	addi score,score,2 # increment score by 2
 	# making health bar full 
 		li $t9, 3960 # till end
 		lw $t8, health # start from health
@@ -651,7 +642,79 @@ j level_2
 
 done_level_2:
 
+
+
+
+
+
+
 game_over:
+# algorithm to clear entire screen:
+# ---------------- #
+li $t9, 3712 # upper limit of loop vairable
+li $t8, 0 # loop vairable
+li $t0,0xd50000 #blacl
+clear4:
+	sw $t0, BASE_ADDRESS($t8) 
+	addi $t8,$t8,4
+	li $v0, 32 #loading sleep service
+	li $a0, 5 # Wait to create an effect
+	syscall
+bne $t8,$t9,clear4
+# ----------------- #
+
+
+# algorithm to print number of stars (SCORE) earned
+# ---------------- #
+li $t8,16 # loop variable
+
+#srl $t0,score,1# $t0 contains number of gold stars
+move $t0, score
+addi $t0,$t0,-4
+
+next_star:
+	lw $t1, stars_pos($t8) # get star position
+	addi $t1,$t1,BASE_ADDRESS # get absolute position of star into $t1
+	
+	
+	blt $t8,$t0, gold # if star number if less than number of gold, then load gold
+	li $t2,0x607d8b # load grey
+	j print_star
+	gold:
+	li $t2,0xffeb3b # laod gold
+	# now $t2 holds color
+	print_star:
+	sw $t2, 4($t1)
+	sw $t2, 128($t1)
+	sw $t2, 132($t1)
+	sw $t2, 136($t1)
+	sw $t2, 260($t1)
+	
+	
+
+	addi $t8,$t8,-4
+bgez $t8,next_star
+
+
+
+# ---------------- #
+
+
+
+resetting:
+	li $v0, 32
+	li $a0, 80 # Wait one second (1000 milliseconds)
+	syscall
+
+	li $t9, 0xffff0000 # load address to check MMIO event
+	lw $t8, 0($t9) # load value of MMIO event
+	bne $t8, 1, resetting # jump if not keystoke
+
+	lw $t0, 4($t9) # get ASCII value of key stroke into $t0
+	beq $t0, 112, pressed_p
+	j resetting
+
+
 
 
 li $v0, 10 # terminate the program gracefully
